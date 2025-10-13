@@ -23,6 +23,7 @@ def black_scholes(S, K, T, r, sigma):
 import streamlit as st
 
 st.title("Black-Scholes Options Pricer & P&L Heatmap")
+st.subheader("Created by Samuel Ojum")
 
 # User inputs
 S = st.number_input("Stock Price (S)", min_value=0.01, value=100.0)
