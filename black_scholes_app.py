@@ -44,8 +44,8 @@ st.write(f"Calculated Put Price: ${put_price:.2f}")
 call_pl = call_price - call_purchase
 put_pl = put_price - put_purchase
 
-st.markdown(f"Call P&L: :{'green' if call_pl>0 else 'red'}[{call_pl:.2f}]")
-st.markdown(f"Put P&L: :{'green' if put_pl>0 else 'red'}[{put_pl:.2f}]")
+st.markdown(f"Call P&L: <span style='color:{'green' if call_pl>0 else 'red'}'>{call_pl:.2f}</span>", unsafe_allow_html=True)
+st.markdown(f"Put P&L: <span style='color:{'green' if put_pl>0 else 'red'}'>{put_pl:.2f}</span>", unsafe_allow_html=True)
 
 import numpy as np
 import pandas as pd
@@ -68,41 +68,16 @@ for i, sig in enumerate(sigma_range):
 call_df = pd.DataFrame(call_pl_matrix, index=np.round(sigma_range, 2), columns=np.round(S_range, 2))
 put_df = pd.DataFrame(put_pl_matrix, index=np.round(sigma_range, 2), columns=np.round(S_range, 2))
 
-st.write("Call P&L Heatmap")
-st.write(sns.heatmap(call_df, cmap="RdYlGn", annot=False))
 
-st.write("Put P&L Heatmap")
-st.write(sns.heatmap(put_df, cmap="RdYlGn", annot=False))
 
-import mysql.connector
 
-conn = mysql.connector.connect(
-    host="localhost",
-    user="your_mysql_user",
-    password="your_mysql_pass",
-    database="tomer_dev_db"
-)
+fig, ax = plt.subplots()
+sns.heatmap(call_df, cmap="RdYlGn", ax=ax)
+st.pyplot(fig)
 
-cursor = conn.cursor()
+fig, ax = plt.subplots()
+sns.heatmap(put_df, cmap="RdYlGn", ax=ax)
+st.pyplot(fig)
 
-# Insert inputs
-cursor.execute("""
-INSERT INTO BlackScholesInputs (StockPrice, StrikePrice, InterestRate, Volatility, TimeToExpiry)
-VALUES (%s, %s, %s, %s, %s)
-""", (S, K, r, sigma, T))
-calculation_id = cursor.lastrowid
 
-# Insert outputs (sample: only base P&L for now)
-cursor.execute("""
-INSERT INTO BlackScholesOutputs (VolatilityShock, StockPriceShock, OptionPrice, IsCall, CalculationId)
-VALUES (%s, %s, %s, %s, %s)
-""", (sigma, S, call_price, 1, calculation_id))
 
-cursor.execute("""
-INSERT INTO BlackScholesOutputs (VolatilityShock, StockPriceShock, OptionPrice, IsCall, CalculationId)
-VALUES (%s, %s, %s, %s, %s)
-""", (sigma, S, put_price, 0, calculation_id))
-
-conn.commit()
-cursor.close()
-conn.close()
