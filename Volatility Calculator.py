@@ -41,19 +41,20 @@ run_button = st.button("Calculate Portfolio Volatility")
 # --- MAIN FUNCTIONALITY ---
 if run_button:
     st.write("### Fetching historical data...")
-    data = yf.download(symbols, period=period, group_by='ticker')
+    data = yf.download(symbols, period=period, group_by='column')
 
-    # Handle single or multiple tickers cleanly
-    if len(symbols) > 1:
-        data = pd.concat([data[ticker]["Adj Close"] for ticker in symbols], axis=1)
-        data.columns = symbols
+    # Handle both single and multiple tickers safely
+    if isinstance(data.columns, pd.MultiIndex):
+        # Multiple tickers
+        adj_close = data["Adj Close"]
     else:
-        data = data["Adj Close"].to_frame(symbols[0])
+        # Single ticker
+        adj_close = data.to_frame(name=symbols[0])
 
-    data = data.dropna()
+    adj_close = adj_close.dropna()
 
     # --- CALCULATIONS ---
-    returns = data.pct_change().dropna()
+    returns = adj_close.pct_change().dropna()
     volatilities = returns.std() * np.sqrt(252)
     corr_matrix = returns.corr()
     cov_matrix = returns.cov() * 252
@@ -83,3 +84,4 @@ if run_button:
     ax.set_title("Individual vs. Portfolio Volatility")
     ax.legend()
     st.pyplot(fig)
+
