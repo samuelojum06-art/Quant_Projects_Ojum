@@ -21,7 +21,7 @@ T = st.number_input("Time horizon (in years):", min_value=0.1, max_value=5.0, va
 n_sims = st.number_input("Number of simulations:", min_value=100, max_value=5000, value=500, step=100)
 steps = 252  # Trading days per year
 
-run_button = st.button("Run Simulation 🚀")
+run_button = st.button("Run Simulation")
 
 # --- FUNCTIONS ---
 def get_stock_params(symbol):
@@ -123,3 +123,4 @@ if run_button:
         )
     else:
         st.error("No valid simulations could be completed. Please check your tickers.")
+
