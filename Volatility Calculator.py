@@ -18,7 +18,7 @@ weights_input = st.text_input("Enter portfolio weights (must sum to 1, e.g. 0.4,
 weights = np.array([float(w.strip()) for w in weights_input.split(",") if w.strip() != ""])
 
 if len(symbols) != len(weights):
-    st.error("The number of weights must match the number of tickers.")
+    st.error("⚠️ The number of weights must match the number of tickers.")
     st.stop()
 
 time_horizon = st.selectbox("Select time horizon:", ["6 months", "1 year", "2 years", "5 years"])
@@ -37,53 +37,23 @@ if run_button:
     st.write("### Fetching historical data...")
     data = yf.download(symbols, period=period, group_by='ticker')
 
-# If multiple tickers, extract adjusted close prices for all
-if len(symbols) > 1:
-    data = pd.concat([data[ticker]["Adj Close"] for ticker in symbols], axis=1)
-    data.columns = symbols
-else:
-    data = data["Adj Close"].to_frame(symbols[0])
+    # Handle single or multiple tickers cleanly
+    if len(symbols) > 1:
+        data = pd.concat([data[ticker]["Adj Close"] for ticker in symbols], axis=1)
+        data.columns = symbols
+    else:
+        data = data["Adj Close"].to_frame(symbols[0])
 
-data = data.dropna()
-)
+    data = data.dropna()
 
-    # Calculate daily returns
+    # --- CALCULATIONS ---
     returns = data.pct_change().dropna()
-
-    # Annualized volatilities
     volatilities = returns.std() * np.sqrt(252)
-
-    # Correlation matrix
     corr_matrix = returns.corr()
-
-    # Covariance matrix (annualized)
     cov_matrix = returns.cov() * 252
-
-    # Portfolio volatility formula
     portfolio_volatility = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
 
     # --- RESULTS ---
-    st.subheader("Individual Stock Volatilities")
+    st.subheader("📊 Individual Stock Volatilities")
     vol_df = pd.DataFrame({
         "Stock": symbols,
-        "Weight": weights,
-        "Annualized Volatility (%)": volatilities.values * 100
-    })
-    st.dataframe(vol_df.style.format({"Annualized Volatility (%)": "{:.2f}"}))
-
-    st.subheader("Correlation Matrix")
-    st.dataframe(corr_matrix.style.format("{:.2f}"))
-
-    st.subheader("Portfolio Volatility")
-    st.success(f"**Estimated Annualized Portfolio Volatility:** {portfolio_volatility * 100:.2f}%")
-
-    # --- PLOT ---
-    st.write("### Portfolio Risk Visualization")
-    fig, ax = plt.subplots(figsize=(8,5))
-    ax.bar(symbols, volatilities * 100, color="skyblue", label="Individual Volatility")
-    ax.axhline(portfolio_volatility * 100, color="red", linestyle="--", label="Portfolio Volatility")
-    ax.set_ylabel("Volatility (%)")
-    ax.set_title("Individual vs. Portfolio Volatility")
-    ax.legend()
-    st.pyplot(fig)
-
