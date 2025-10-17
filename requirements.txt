@@ -5,3 +5,5 @@ matplotlib
 scipy
 seaborn
 mysql-connector-python
+yfinance
+
