@@ -25,31 +25,32 @@ steps = 252  # Trading days per year
 run_button = st.button("Run Simulation 🚀")
 
 # --- FUNCTIONS ---
-def get_stock_params_polygon(symbol, api_key):
-    """Fetch historical prices from Polygon.io and calculate drift (mu) and volatility (sigma)."""
-    end_date = date.today()
-    start_date = end_date - timedelta(days=500)
-    url = f"https://api.polygon.io/v2/aggs/ticker/{symbol}/range/1/day/{start_date}/{end_date}?adjusted=true&sort=asc&apiKey={api_key}"
+    def get_stock_params_polygon(symbol, api_key):
+        """Fetch historical prices from Polygon.io and calculate drift (mu) and volatility (sigma)."""
+        end_date = date.today()
+        start_date = end_date - timedelta(days=500)
+        url = f"https://api.polygon.io/v2/aggs/ticker/{symbol}/range/1/day/{start_date}/{end_date}?adjusted=true&sort=asc&apiKey={api_key}"
 
-    r = requests.get(url)
-    if r.status_code != 200:
-        st.warning(f"⚠️ Error fetching {symbol}: {r.text}")
-        return None
+        r = requests.get(url)
+        if r.status_code != 200:
+            st.warning(f"⚠️ Error fetching {symbol}: {r.text}")
+            return None
 
-    data = r.json()
-    if "results" not in data:
-        st.warning(f"⚠️ No data available for {symbol}. Check the ticker or API limits.")
-        return None
+        data = r.json()
+        if "results" not in data:
+            st.warning(f"⚠️ No data available for {symbol}. Check the ticker or API limits.")
+            return None
 
-    prices = pd.DataFrame(data["results"])
-    prices["date"] = pd.to_datetime(prices["t"], unit="ms")
-    prices.rename(columns={"c": "close"}, inplace=True)
-    returns = prices["close"].pct_change().dropna()
+        prices = pd.DataFrame(data["results"])
+        prices["date"] = pd.to_datetime(prices["t"], unit="ms")
+        prices.rename(columns={"c": "close"}, inplace=True)
+        returns = prices["close"].pct_change().dropna()
 
-    S0 = prices["close"].iloc[-1]
-    mu = returns.mean() * 252
-    sigma = returns.std() * np.sqrt(252)
-    return S0, mu, sigma
+        S0 = prices["close"].iloc[-1]
+        mu = returns.mean() * 252
+        sigma = returns.std() * np.sqrt(252)
+        return S0, mu, sigma
+
 
 def monte_carlo_stock(S0, mu, sigma, T, steps, n_sims):
     """Run the Monte Carlo simulation."""
