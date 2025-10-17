@@ -35,7 +35,17 @@ run_button = st.button("Calculate Portfolio Volatility")
 # --- MAIN FUNCTIONALITY ---
 if run_button:
     st.write("### Fetching historical data...")
-    data = yf.download(symbols, period=period)["Adj Close"].dropna()
+    data = yf.download(symbols, period=period, group_by='ticker')
+
+# If multiple tickers, extract adjusted close prices for all
+if len(symbols) > 1:
+    data = pd.concat([data[ticker]["Adj Close"] for ticker in symbols], axis=1)
+    data.columns = symbols
+else:
+    data = data["Adj Close"].to_frame(symbols[0])
+
+data = data.dropna()
+)
 
     # Calculate daily returns
     returns = data.pct_change().dropna()
@@ -76,3 +86,4 @@ if run_button:
     ax.set_title("Individual vs. Portfolio Volatility")
     ax.legend()
     st.pyplot(fig)
+
