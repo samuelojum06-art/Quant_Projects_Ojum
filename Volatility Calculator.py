@@ -70,19 +70,27 @@ if run_button:
 
     # Handle both single and multiple tickers safely
     if isinstance(data.columns, pd.MultiIndex):
-        # Multiple tickers
-        try:
+        price_levels = data.columns.get_level_values(0)
+        if "Adj Close" in price_levels:
             adj_close = data.xs("Adj Close", axis=1, level=0)
-        except KeyError:
-            st.error("Adjusted close prices were not found in the downloaded data.")
+        elif "Close" in price_levels:
+            st.warning("Using 'Close' prices instead of 'Adj Close' (adjusted) data.")
+            adj_close = data.xs("Close", axis=1, level=0)
+        else:
+            st.error("Adjusted close or close prices were not found in the downloaded data.")
             st.stop()
     else:
         # Single ticker
-        if "Adj Close" not in data.columns:
-            st.error("Adjusted close prices were not found in the downloaded data.")
+        if "Adj Close" in data.columns:
+            adj_close = data[["Adj Close"]].rename(columns={"Adj Close": symbols[0]})
+        elif "Close" in data.columns:
+            st.warning("Using 'Close' prices instead of 'Adj Close' (adjusted) data.")
+            adj_close = data[["Close"]].rename(columns={"Close": symbols[0]})
+        else:
+            st.error("Adjusted close or close prices were not found in the downloaded data.")
             st.stop()
-        adj_close = data[["Adj Close"]].rename(columns={"Adj Close": symbols[0]})
 
+    adj_close = adj_close.loc[:, ~adj_close.columns.duplicated()]
     missing_tickers = [symbol for symbol in symbols if symbol not in adj_close.columns]
     if missing_tickers:
         st.error(
