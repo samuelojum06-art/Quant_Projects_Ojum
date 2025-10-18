@@ -8,7 +8,9 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="Portfolio Volatility Calculator", layout="wide")
 
 st.title("Portfolio Volatility Calculator")
+st.title("By Samuel Ojum")
 st.write("Estimate the volatility of a custom stock portfolio based on historical price data.")
+st.write("Using Yahoo Finance API")
 
 # --- USER INPUTS ---
 symbols_input = st.text_input(
@@ -147,3 +149,4 @@ if run_button:
     ax.set_title("Individual vs. Portfolio Volatility")
     ax.legend()
     st.pyplot(fig)
+
