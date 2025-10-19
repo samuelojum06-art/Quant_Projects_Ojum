@@ -132,3 +132,9 @@ if run_button:
         csv = df_results.to_csv(index=False).encode("utf-8")
         st.download_button(
             label="📥 Download Results as CSV",
+            data=csv,
+            file_name="monte_carlo_results.csv",
+            mime="text/csv"
+        )
+    else:
+        st.error("No valid simulations could be completed. Please check your tickers.")
