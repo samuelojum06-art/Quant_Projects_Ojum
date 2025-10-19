@@ -2,9 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import requests
 import yfinance as yf
-from requests.exceptions import HTTPError, RequestException
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Monte Carlo Stock Simulator", layout="wide")
@@ -15,8 +13,6 @@ st.markdown("**By Samuel Ojum**")
 st.write("Simulate future stock prices using real market data and the Monte Carlo method.")
 
 # --- USER INPUTS ---
-API_KEY = "axUgQt57qF6D60tZBtu7TPo1dIU5yygb"
-
 symbols_input = st.text_input(
     "Enter stock tickers separated by commas (e.g. AAPL, MSFT, TSLA):",
     "AAPL,MSFT,TSLA"
@@ -33,38 +29,31 @@ run_button = st.button("Run Simulation")
 @st.cache_data(show_spinner=False)
 def get_stock_params(symbol):
     """Fetch historical prices and calculate drift (mu) and volatility (sigma)."""
-    url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{symbol}?timeseries=500&apikey={API_KEY}"
-
     try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-    except HTTPError as exc:
-        st.warning(f"⚠️ Unable to load data for {symbol}: {exc}")
-        return None
-    except (RequestException, ValueError) as exc:
-        st.warning(f"⚠️ Network error while requesting {symbol}: {exc}")
+        data = yf.download(symbol, period="5y", progress=False, auto_adjust=True)
+    except Exception as exc:
+        st.warning(f"⚠️ Yahoo Finance request failed for {symbol}: {exc}")
         return None
 
-    if "historical" not in data or len(data["historical"]) == 0:
-        st.warning(f"⚠️ No data found for {symbol}. Skipping...")
+    if data.empty or "Close" not in data.columns:
+        st.warning(f"⚠️ No valid data for {symbol}. Skipping...")
         return None
 
-    prices = pd.DataFrame(data["historical"])[["date", "close"]].sort_values("date")
-    returns = prices["close"].pct_change().dropna()
+    prices = data["Close"].dropna()
+    returns = prices.pct_change().dropna()
 
     if returns.empty:
         st.warning(f"⚠️ Not enough historical data to calculate returns for {symbol}. Skipping...")
         return None
 
-    S0 = prices["close"].iloc[-1]
+    S0 = prices.iloc[-1]
     mu = returns.mean() * 252
     sigma = returns.std() * np.sqrt(252)
     return S0, mu, sigma
 
 
 def monte_carlo_stock(S0, mu, sigma, T, steps, n_sims):
-    """Run the Monte Carlo simulation for one stock."""
+    """Run the Monte Carlo simulation."""
     dt = T / steps
     prices = np.zeros((steps + 1, n_sims))
     prices[0] = S0
@@ -75,7 +64,7 @@ def monte_carlo_stock(S0, mu, sigma, T, steps, n_sims):
     return prices
 
 
-# --- RUN SIMULATIONS ---
+# --- MAIN APP ---
 if run_button:
     results = []
     simulation_outputs = {}
@@ -143,10 +132,3 @@ if run_button:
         csv = df_results.to_csv(index=False).encode("utf-8")
         st.download_button(
             label="📥 Download Results as CSV",
-            data=csv,
-            file_name="monte_carlo_results.csv",
-            mime="text/csv"
-        )
-    else:
-        st.error("No valid simulations could be completed. Please check your tickers.")
-
