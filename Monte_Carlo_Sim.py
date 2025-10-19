@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import requests
+import yfinance as yf
 from requests.exceptions import HTTPError, RequestException
 
 # --- PAGE CONFIG ---
@@ -148,3 +149,4 @@ if run_button:
         )
     else:
         st.error("No valid simulations could be completed. Please check your tickers.")
+
