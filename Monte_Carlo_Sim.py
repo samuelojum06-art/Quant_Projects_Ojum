@@ -25,18 +25,18 @@ steps = 252  # Trading days per year
 
 run_button = st.button("Run Simulation")
 
-# --- FUNCTIONS ---
+# --- FUNCTION TO GET DATA ---
 @st.cache_data(show_spinner=False)
 def get_stock_params(symbol):
     """Fetch historical prices and calculate drift (mu) and volatility (sigma)."""
     try:
         data = yf.download(symbol, period="5y", progress=False, auto_adjust=True)
     except Exception as exc:
-        st.warning(f"⚠️ Yahoo Finance request failed for {symbol}: {exc}")
+        st.warning(f"⚠️ Could not download data for {symbol}: {exc}")
         return None
 
     if data.empty or "Close" not in data.columns:
-        st.warning(f"⚠️ No valid data for {symbol}. Skipping...")
+        st.warning(f"⚠️ No valid price data for {symbol}. Skipping...")
         return None
 
     prices = data["Close"].dropna()
@@ -53,7 +53,7 @@ def get_stock_params(symbol):
 
 
 def monte_carlo_stock(S0, mu, sigma, T, steps, n_sims):
-    """Run the Monte Carlo simulation."""
+    """Run Monte Carlo simulation."""
     dt = T / steps
     prices = np.zeros((steps + 1, n_sims))
     prices[0] = S0
@@ -61,15 +61,16 @@ def monte_carlo_stock(S0, mu, sigma, T, steps, n_sims):
     for t in range(1, steps + 1):
         z = np.random.standard_normal(n_sims)
         prices[t] = prices[t - 1] * np.exp((mu - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * z)
+
     return prices
 
 
 # --- MAIN APP ---
 if run_button:
-    results = []
-    simulation_outputs = {}
     st.write("### Running Simulations...")
     progress = st.progress(0)
+    results = []
+    simulation_outputs = {}
 
     for i, symbol in enumerate(symbols):
         progress.progress((i + 1) / len(symbols))
@@ -96,10 +97,9 @@ if run_button:
             "Drift (mu)": mu,
             "Volatility (sigma)": sigma
         })
-
         simulation_outputs[symbol] = {"final_prices": final_prices}
 
-        # --- Plot simulated paths ---
+        # --- Plot Simulated Paths ---
         st.subheader(f"Simulation for {symbol}")
         fig, ax = plt.subplots(figsize=(10, 5))
         ax.plot(sims, linewidth=0.8)
@@ -109,7 +109,7 @@ if run_button:
         st.pyplot(fig)
         plt.close(fig)
 
-    # --- COMPARISON HISTOGRAM ---
+    # --- HISTOGRAM + RESULTS ---
     if results:
         st.subheader(f"{T}-Year Final Price Distribution Comparison")
         fig, ax = plt.subplots(figsize=(10, 5))
@@ -123,12 +123,12 @@ if run_button:
         st.pyplot(fig)
         plt.close(fig)
 
-        # --- SHOW RESULTS TABLE ---
+        # --- Results Table ---
         df_results = pd.DataFrame(results)
         st.subheader("📊 Summary Statistics")
         st.dataframe(df_results.style.format("{:.2f}"))
 
-        # --- CSV DOWNLOAD BUTTON ---
+        # --- Download CSV ---
         csv = df_results.to_csv(index=False).encode("utf-8")
         st.download_button(
             label="📥 Download Results as CSV",
