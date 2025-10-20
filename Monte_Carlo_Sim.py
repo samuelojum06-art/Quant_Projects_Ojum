@@ -28,23 +28,23 @@ run_button = st.button("Run Simulation")
 # --- FUNCTION TO GET DATA ---
 @st.cache_data(show_spinner=False)
 def get_stock_params(symbol):
-    """Fetch historical prices and calculate drift (mu) and volatility (sigma)."""
+    """Fetch price data from Yahoo Finance; fallback to synthetic if unavailable."""
     try:
         data = yf.download(symbol, period="5y", progress=False, auto_adjust=True)
     except Exception as exc:
-        st.warning(f"⚠️ Could not download data for {symbol}: {exc}")
-        return None
+        st.warning(f"Yahoo Finance request failed for {symbol}: {exc}")
+        data = pd.DataFrame()
 
     if data.empty or "Close" not in data.columns:
-        st.warning(f"⚠️ No valid price data for {symbol}. Skipping...")
-        return None
+        st.info(f"Using synthetic price data for {symbol} (no live market data).")
+        return build_synthetic_params(symbol)
 
     prices = data["Close"].dropna()
     returns = prices.pct_change().dropna()
 
     if returns.empty:
-        st.warning(f"⚠️ Not enough historical data to calculate returns for {symbol}. Skipping...")
-        return None
+        st.info(f"Not enough historical data for {symbol}. Using synthetic instead.")
+        return build_synthetic_params(symbol)
 
     S0 = prices.iloc[-1]
     mu = returns.mean() * 252
@@ -52,8 +52,16 @@ def get_stock_params(symbol):
     return S0, mu, sigma
 
 
+def build_synthetic_params(symbol, years=5, steps_per_year=252):
+    """Generate synthetic data parameters when no market data is available."""
+    np.random.seed(abs(hash(symbol)) % (2**32))
+    mu, sigma = 0.07, 0.25
+    S0 = 100.0
+    return S0, mu, sigma
+
+
 def monte_carlo_stock(S0, mu, sigma, T, steps, n_sims):
-    """Run Monte Carlo simulation."""
+    """Run the Monte Carlo simulation."""
     dt = T / steps
     prices = np.zeros((steps + 1, n_sims))
     prices[0] = S0
@@ -61,16 +69,15 @@ def monte_carlo_stock(S0, mu, sigma, T, steps, n_sims):
     for t in range(1, steps + 1):
         z = np.random.standard_normal(n_sims)
         prices[t] = prices[t - 1] * np.exp((mu - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * z)
-
     return prices
 
 
 # --- MAIN APP ---
 if run_button:
-    st.write("### Running Simulations...")
-    progress = st.progress(0)
     results = []
     simulation_outputs = {}
+    st.write("### Running Simulations...")
+    progress = st.progress(0)
 
     for i, symbol in enumerate(symbols):
         progress.progress((i + 1) / len(symbols))
@@ -97,9 +104,10 @@ if run_button:
             "Drift (mu)": mu,
             "Volatility (sigma)": sigma
         })
+
         simulation_outputs[symbol] = {"final_prices": final_prices}
 
-        # --- Plot Simulated Paths ---
+        # --- Plot simulated paths ---
         st.subheader(f"Simulation for {symbol}")
         fig, ax = plt.subplots(figsize=(10, 5))
         ax.plot(sims, linewidth=0.8)
@@ -109,7 +117,7 @@ if run_button:
         st.pyplot(fig)
         plt.close(fig)
 
-    # --- HISTOGRAM + RESULTS ---
+    # --- COMPARISON HISTOGRAM ---
     if results:
         st.subheader(f"{T}-Year Final Price Distribution Comparison")
         fig, ax = plt.subplots(figsize=(10, 5))
@@ -123,15 +131,15 @@ if run_button:
         st.pyplot(fig)
         plt.close(fig)
 
-        # --- Results Table ---
+        # --- SHOW RESULTS TABLE ---
         df_results = pd.DataFrame(results)
-        st.subheader("📊 Summary Statistics")
+        st.subheader("Summary Statistics")
         st.dataframe(df_results.style.format("{:.2f}"))
 
-        # --- Download CSV ---
+        # --- CSV DOWNLOAD BUTTON ---
         csv = df_results.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="📥 Download Results as CSV",
+            label="Download Results as CSV",
             data=csv,
             file_name="monte_carlo_results.csv",
             mime="text/csv"
