@@ -1,7 +1,9 @@
-import streamlit as st
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import streamlit as st
 import yfinance as yf
 
 # --- PAGE CONFIG ---
@@ -25,38 +27,84 @@ steps = 252  # Trading days per year
 
 run_button = st.button("Run Simulation")
 
-# --- FUNCTION TO GET DATA ---
+SAMPLE_DATA_PATH = Path(__file__).resolve().parent / "data" / "sample_prices.csv"
+
+
+@st.cache_data(show_spinner=False)
+def load_sample_prices() -> pd.DataFrame | None:
+    """Load offline price data if available."""
+    if not SAMPLE_DATA_PATH.exists():
+        return None
+    try:
+        return pd.read_csv(SAMPLE_DATA_PATH, parse_dates=["Date"])
+    except Exception as exc:  # pragma: no cover - defensive
+        st.warning(f"⚠️ Failed to read fallback price data: {exc}")
+        return None
+
+
+@st.cache_data(show_spinner=False)
+def build_synthetic_history(symbol: str, years: float = 5.0, steps_per_year: int = 252) -> pd.Series:
+    """Generate a deterministic synthetic price history when no data is available."""
+    total_steps = max(int(years * steps_per_year), 2)
+    # Use a stable seed per symbol so reruns show the same paths.
+    rng = np.random.default_rng(abs(hash(symbol)) % (2**32))
+    dt = 1 / steps_per_year
+    mu = 0.07  # Assumed annual drift for synthetic prices
+    sigma = 0.25  # Assumed annual volatility
+    prices = np.zeros(total_steps)
+    prices[0] = 100.0
+    for t in range(1, total_steps):
+        shock = rng.standard_normal()
+        prices[t] = prices[t - 1] * np.exp((mu - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * shock)
+    start_date = pd.Timestamp.today() - pd.Timedelta(days=total_steps)
+    index = pd.date_range(start=start_date, periods=total_steps, freq="B")
+    return pd.Series(prices, index=index, name=symbol)
+
+
+# --- FUNCTIONS ---
 @st.cache_data(show_spinner=False)
 def get_stock_params(symbol):
-    """Fetch price data from Yahoo Finance; fallback to synthetic if unavailable."""
+    """Fetch historical prices and calculate drift (mu) and volatility (sigma)."""
+    data = pd.DataFrame()
     try:
         data = yf.download(symbol, period="5y", progress=False, auto_adjust=True)
     except Exception as exc:
-        st.warning(f"Yahoo Finance request failed for {symbol}: {exc}")
-        data = pd.DataFrame()
+        st.warning(f"⚠️ Yahoo Finance request failed for {symbol}: {exc}")
 
-    if data.empty or "Close" not in data.columns:
-        st.info(f"Using synthetic price data for {symbol} (no live market data).")
-        return build_synthetic_params(symbol)
+    prices: pd.Series | None = None
+    if not data.empty:
+        if isinstance(data.columns, pd.MultiIndex):
+            close_key = ("Close", symbol) if ("Close", symbol) in data.columns else None
+            if close_key:
+                prices = data[close_key].dropna()
+        elif "Close" in data.columns:
+            prices = data["Close"].dropna()
 
-    prices = data["Close"].dropna()
+    if prices is None or prices.empty:
+        fallback = load_sample_prices()
+        if fallback is not None:
+            symbol_data = fallback[fallback["Symbol"].str.upper() == symbol.upper()].sort_values("Date")
+            if not symbol_data.empty:
+                st.info(
+                    f"ℹ️ Using bundled sample data for {symbol} because live market data is unavailable."
+                )
+                prices = symbol_data["Close"].dropna()
+
+    if prices is None or prices.empty:
+        st.info(
+            "ℹ️ Generating synthetic price history because no market data was available."
+        )
+        prices = build_synthetic_history(symbol)
+
     returns = prices.pct_change().dropna()
 
     if returns.empty:
-        st.info(f"Not enough historical data for {symbol}. Using synthetic instead.")
-        return build_synthetic_params(symbol)
+        st.warning(f"⚠️ Not enough historical data to calculate returns for {symbol}. Skipping...")
+        return None
 
     S0 = prices.iloc[-1]
     mu = returns.mean() * 252
     sigma = returns.std() * np.sqrt(252)
-    return S0, mu, sigma
-
-
-def build_synthetic_params(symbol, years=5, steps_per_year=252):
-    """Generate synthetic data parameters when no market data is available."""
-    np.random.seed(abs(hash(symbol)) % (2**32))
-    mu, sigma = 0.07, 0.25
-    S0 = 100.0
     return S0, mu, sigma
 
 
@@ -133,13 +181,20 @@ if run_button:
 
         # --- SHOW RESULTS TABLE ---
         df_results = pd.DataFrame(results)
-        st.subheader("Summary Statistics")
-        st.dataframe(df_results.style.format("{:.2f}"))
+        st.subheader("📊 Summary Statistics")
+
+        numeric_columns = df_results.select_dtypes(include="number").columns
+        if len(numeric_columns) > 0:
+            st.dataframe(
+                df_results.style.format({col: "{:.2f}" for col in numeric_columns})
+            )
+        else:
+            st.dataframe(df_results)
 
         # --- CSV DOWNLOAD BUTTON ---
         csv = df_results.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="Download Results as CSV",
+            label="📥 Download Results as CSV",
             data=csv,
             file_name="monte_carlo_results.csv",
             mime="text/csv"
