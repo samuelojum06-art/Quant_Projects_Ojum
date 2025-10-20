@@ -15,6 +15,8 @@ where
 d1 = [ln(S / K) + (r + 0.5 * sigma^2) * T] / (sigma * sqrt(T))
 d2 = d1 - sigma * sqrt(T)
 
+$d_1 = \dfrac{\ln(S / K) + (r + 0.5\sigma^2)T}{\sigma\sqrt{T}}$
+
 Here, 
 𝑆
 S represents the current stock price, 
