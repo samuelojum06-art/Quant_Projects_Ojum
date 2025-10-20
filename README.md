@@ -55,7 +55,7 @@ LinkedIn: linkedin.com/in/samuelojum06
 # 6. Running the Project
 
 To run the Black-Scholes Options Pricer & P&L Heatmap locally, open a terminal or command prompt and execute the following commands:
-bash``
+```bash
 # Clone the repository
 git clone https://github.com/Samuelojum06-art/BlackScholes_Heatmap.git
 cd BlackScholes_Heatmap
