@@ -7,15 +7,13 @@ This project is an interactive Streamlit web application that implements the Bla
 
 The Black-Scholes model provides a closed-form solution for pricing European options under certain assumptions such as log-normally distributed asset returns and constant volatility. The call and put prices are calculated using the following equations:
 
-C = S * N(d1) - K * exp(-r * T) * N(d2)
-P = K * exp(-r * T) * N(-d2) - S * N(-d1)
+$C = S \cdot N(d_1) - K e^{-rT} N(d_2)$
+$P = K e^{-rT} N(-d_2) - S N(-d_1)$
 
 where
 
-d1 = [ln(S / K) + (r + 0.5 * sigma^2) * T] / (sigma * sqrt(T))
-d2 = d1 - sigma * sqrt(T)
-
 $d_1 = \dfrac{\ln(S / K) + (r + 0.5\sigma^2)T}{\sigma\sqrt{T}}$
+$d_2 = d_1 - \sigma\sqrt{T}$
 
 Here, 
 𝑆
